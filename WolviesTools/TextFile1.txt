@@ -1,0 +1,54 @@
+Public Shared Sub GetXrefList()
+
+Dim Doc As Document = Application.DocumentManager.MdiActiveDocument
+Dim Ed As Editor = Doc.Editor
+Dim Db As Database = Doc.Database
+Dim Tr As Transaction = Db.TransactionManager.StartTransaction()
+
+Using Tr
+Dim DbXrGraph As XrefGraph = Db.GetHostDwgXrefGraph(False)
+
+' look at all Nodes in the XrefGraph. Skip 0 node since it is the drawing itself.
+For i As Integer = 1 To DbXrGraph.NumNodes - 1
+Dim XrGraphNode As XrefGraphNode = DbXrGraph.GetXrefNode(i)
+If Not XrGraphNode.IsNested Then
+Dim btr As BlockTableRecord = DirectCast(Tr.GetObject(XrGraphNode.BlockTableRecordId, OpenMode.ForRead), BlockTableRecord)
+' Print Xref at the top of the Chain
+Ed.WriteMessage (vbNewLine & "TOP:" & XrGraphNode.name)
+getSubReference(Tr, XrGraphNode.BlockTableRecordId, Ed)
+End If
+
+Next
+End Using
+
+End Sub
+
+Private Shared Function getSubReference(ByRef Tr As Transaction, ByVal BlockID As ObjectId, ByRef Ed As Editor) As Boolean
+Dim btr As BlockTableRecord = DirectCast(Tr.GetObject(BlockID, OpenMode.ForRead), BlockTableRecord)
+Dim hasXref As Boolean = False
+Dim iter As BlockTableRecordEnumerator = btr.GetEnumerator
+
+While iter.MoveNext
+Dim ent As Entity = iter.Current.GetObject(OpenMode.ForRead)
+
+If TypeName(ent) = "BlockReference" Then
+Dim BR As BlockReference = CType(ent, BlockReference)
+Dim nBTR As BlockTableRecord = Tr.GetObject(BR.BlockTableRecord, OpenMode.ForRead)
+' Check if Xref exists
+If nBTR.IsFromExternalReference And nBTR.IsResolved Then
+If getSubReference(Tr, nBTR.ObjectID, Ed) Then
+' Print Xref that links to another xref
+Ed.WriteMessage (vbNewLine & "Middle: " & btr.name & " Sub: " & nBTR.name)
+Else
+' Print Xref at the end of the chain
+Ed.WriteMessage (vbNewLine & "end:" & btr.name & " Sub: " & nBTR.name)
+End If
+hasXref = True
+End If
+End If
+
+End While
+
+Return hasXref
+
+End Function
