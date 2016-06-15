@@ -25,12 +25,21 @@ namespace WolviesTools_2016
             WolviesContextMenu.Attach();
             
             //check to see if SAVETIME is set
-            //if(Autodesk.AutoCAD.ApplicationServices.Core.Application.DocumentManager.CurrentDocument.)
+            if((int)acApp.GetSystemVariable("SAVETIME") != 3)
+            {
+                acApp.SetSystemVariable("SAVETIME", 3);
+            }
         }
         //remove context menu
         public void Terminate()
         {
             WolviesContextMenu.Detach();
+        }
+
+        [CommandMethod("st")]
+        public void st()
+        {
+            acApp.SetSystemVariable("SAVETIME", 3);
         }
 
         //give the total of several distances
