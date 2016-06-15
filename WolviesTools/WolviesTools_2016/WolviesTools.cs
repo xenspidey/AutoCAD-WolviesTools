@@ -14,20 +14,32 @@ using Autodesk.AutoCAD.Geometry;
 using acApp = Autodesk.AutoCAD.ApplicationServices.Application;
 using acMenu = Autodesk.AutoCAD.Windows.MenuItem;
 
-namespace WolviesTools
+namespace WolviesTools_2016
 {
-    //basic tools
     public class Wtools : IExtensionApplication
-    {       
-        //add context menu
+    {
+        
         public void Initialize()
         {
+            //add context menu
             WolviesContextMenu.Attach();
+            
+            //check to see if SAVETIME is set
+            if((int)acApp.GetSystemVariable("SAVETIME") != 3)
+            {
+                acApp.SetSystemVariable("SAVETIME", 3);
+            }
         }
         //remove context menu
         public void Terminate()
         {
             WolviesContextMenu.Detach();
+        }
+
+        [CommandMethod("st")]
+        public void st()
+        {
+            acApp.SetSystemVariable("SAVETIME", 3);
         }
 
         //give the total of several distances
@@ -36,20 +48,20 @@ namespace WolviesTools
         {
             Document acDoc = acApp.DocumentManager.MdiActiveDocument;
             Editor acEd = acDoc.Editor;
-            
+
             PromptDistanceOptions pdo = new PromptDistanceOptions("\nSelect first point:");
-            
-            int prec = (Int16) acApp.GetSystemVariable("DIMDEC");
+
+            int prec = (Int16)acApp.GetSystemVariable("DIMDEC");
             // List of the points selected and our result object
 
-            List<double> pts = new List<double>();           
+            List<double> pts = new List<double>();
             PromptDoubleResult dist;
 
             // The selection loop
             pdo.AllowNone = true;
             do
-            {               
-                dist = acEd.GetDistance(pdo);                
+            {
+                dist = acEd.GetDistance(pdo);
                 pts.Add(dist.Value);
             }
             while (dist.Status == PromptStatus.OK);
@@ -63,20 +75,20 @@ namespace WolviesTools
                     {
                         totDist = totDist + item;
                     }
-                }                
-                string arch_dist = Converter.DistanceToString(totDist, DistanceUnitFormat.Architectural, prec);                
-                string dec_dist = Converter.DistanceToString(totDist, DistanceUnitFormat.Decimal, prec);                
-                
+                }
+                string arch_dist = Converter.DistanceToString(totDist, DistanceUnitFormat.Architectural, prec);
+                string dec_dist = Converter.DistanceToString(totDist, DistanceUnitFormat.Decimal, prec);
+
                 MessageBox.Show("Total distance is: " + arch_dist + " (" + dec_dist + "\")");
 
             }
-        }        
+        }
 
         //close all open drawings without saving
         [CommandMethod("CloseAllNoSave", CommandFlags.Session)]
         public void CloseAllNoSave()
         {
-            Editor ed = acApp.DocumentManager.MdiActiveDocument.Editor;            
+            Editor ed = acApp.DocumentManager.MdiActiveDocument.Editor;
             foreach (Document acDoc in acApp.DocumentManager)
             {
                 try
@@ -84,9 +96,9 @@ namespace WolviesTools
                     acDoc.CloseAndDiscard();
                 }
                 catch (System.Exception e)
-                {                        
+                {
                     ed.WriteMessage(e.ToString());
-                }                               
+                }
             }
         }
 
@@ -130,7 +142,7 @@ namespace WolviesTools
                 // If OK
                 if (acSSPrompt.Status == PromptStatus.OK)
                 {
-                    
+
                     SelectionSet acSSet = acSSPrompt.Value;
 
                     // Step through the objects
@@ -155,9 +167,9 @@ namespace WolviesTools
                         }
                     }
                 }
-             
+
                 if (acObjList.Count != 0)
-                {                   
+                {
                     //TO-DO:
                     //iterate through acObjList if object is mtext save over to acObjMtext
                     //if objuect is DBtext then convert to mtext and save over to acObjMtext
@@ -180,10 +192,10 @@ namespace WolviesTools
                     else
                     {
                         acPosition = new Point3d(0, 0, 0);
-                    }                   
+                    }
                     //iterate though the list of entities and use properties of the first Mtext entity found
                     //for the new mtext entity
-                    
+
                     try
                     {
                         MText firstMtext = (MText)acObjList.Find(x => x.GetType() == typeof(MText));
@@ -191,38 +203,38 @@ namespace WolviesTools
                         acNewMText.SetDatabaseDefaults();
                         acNewMText.Location = acPosition;
                         acNewMText.TextHeight = firstMtext.TextHeight;
-                        acNewMText.TextStyle = firstMtext.TextStyle;
+                        acNewMText.TextStyleId = firstMtext.TextStyleId;
                         acNewMText.Width = firstMtext.Width;
                         acNewMText.Layer = firstMtext.Layer;
                     }
                     catch (System.Exception)
-                    {                       
+                    {
                         //set relevant properties to the new mtext entity
                         MText firstMtext = new MText();
                         acNewMText.SetDatabaseDefaults();
-                        acNewMText.Location = acPosition;                          
+                        acNewMText.Location = acPosition;
                     }
 
                     //iterate though each entity add the entities text to the acObjList_Mtext based on
                     //if the entity is DBText or Mtext
                     foreach (Entity acEnt in acObjList)
-                    {  
+                    {
                         //test to see if acEnt is Mtext
-                        if(acEnt.GetType() == typeof(MText))
+                        if (acEnt.GetType() == typeof(MText))
                         {
                             //add text contents to acObjList_Mtest
                             MText acMtextTemp = acTrans.GetObject(acEnt.ObjectId, OpenMode.ForRead) as MText;
                             acObjList_Mtext.Add(acMtextTemp.Text);
                         }
-                            //if acEnt is not mtext
+                        //if acEnt is not mtext
                         else if (acEnt.GetType() == typeof(DBText))
-                        {                            
+                        {
                             //add text contents to acObjList_Mtext
                             DBText acDBText = acTrans.GetObject(acEnt.ObjectId, OpenMode.ForWrite) as DBText;
                             acObjList_Mtext.Add(acDBText.TextString);
                         }
                     }
-                    
+
                     //check to make sure that the List acObjList_Mtext is not empty
                     if (acObjList_Mtext.Count != 0)
                     {
@@ -237,7 +249,7 @@ namespace WolviesTools
                         objId = acBlkTblRec.AppendEntity(acNewMText);
                         acTrans.AddNewlyCreatedDBObject(acNewMText, true);
                     }
-                    
+
                     //remove initially selected objects from the database.
                     for (int i = 0; i < acObjList.Count; i++)
                     {
@@ -272,7 +284,7 @@ namespace WolviesTools
             {
                 MessageBox.Show("It appears the directory requested is not available\nSave the drawing and try again", "Directory not available");
             }
-         }
+        }
 
         [CommandMethod("breakatpoint", CommandFlags.Modal | CommandFlags.UsePickSet)]
         public static void Breakatpoint()
@@ -309,14 +321,14 @@ namespace WolviesTools
                         if (IsPointOnCurve(line, pointPr))
                         {
                             //create new line from selected line start point to point chosen
-                            
+
                             var lineseg = new LineSegment3d(line.StartPoint, pointPr);
                             var vec = lineseg.Direction.MultiplyBy(2).Negate();
                             Line line_seg1 = new Line(line.StartPoint, pointPr.Add(vec));
-                            line_seg1.Layer = line.Layer;                          
+                            line_seg1.Layer = line.Layer;
                             objId = acBlkTblRec.AppendEntity(line_seg1);
                             acTrans.AddNewlyCreatedDBObject(line_seg1, true);
-                            
+
                             //create new line from point chosen to end point on selected line
                             lineseg = new LineSegment3d(pointPr, line.EndPoint);
                             vec = lineseg.Direction.MultiplyBy(2).Negate();
@@ -355,7 +367,7 @@ namespace WolviesTools
             Document acDoc = acApp.DocumentManager.MdiActiveDocument;
             Database acDb = acDoc.Database;
             Editor acEd = acDoc.Editor;
-           
+
             PromptSelectionResult psr = acEd.GetSelection();
             if (psr.Status != PromptStatus.OK)
             {
@@ -372,7 +384,7 @@ namespace WolviesTools
                         Document doc = acApp.DocumentManager.Open(acBtr.GetXrefDatabase(true).Filename, true);
                         if (doc != null)
                         {
-                            acApp.DocumentManager.MdiActiveDocument = doc; 
+                            acApp.DocumentManager.MdiActiveDocument = doc;
                         }
                     }
                     else
@@ -413,90 +425,7 @@ namespace WolviesTools
             }
         }
 
-        [CommandMethod("jaaopen")]
-        public void jaaopen()
-        {
-            Editor ed = acApp.DocumentManager.MdiActiveDocument.Editor;
-
-            // First let's use the editor method, GetFileNameForOpen()
-
-            PromptOpenFileOptions opts = new PromptOpenFileOptions("Select File");
-            opts.Filter =
-              "Drawing (*.dwg)|*.dwg|Design Web Format (*.dwf)|*.dwf|" +
-              "Drawing Template (*.dwt)|*.dwt|Standards (*.dws)|*.dws|" +
-              "DXF (*.dxf)|*.dxf|(All files (*.*)|*.*";
-            
-            
-            PromptFileNameResult pr = ed.GetFileNameForOpen(opts);
-            DocumentCollection acDocMgr = acApp.DocumentManager;
-            Document doc = null;
-            if (pr.Status == PromptStatus.OK)
-            {
-                foreach (string file in acDocMgr)
-                {
-                    if (pr.ReadOnly == true)
-                    {
-                        // Open document readonly
-                        doc = acDocMgr.Open(file, true);
-                    }
-                    else
-                    {
-                        // Open document for write 
-                        doc = acDocMgr.Open(file, false);
-                    }
-                }
-            }
-            
-            if (doc != null)
-            {
-                acApp.DocumentManager.MdiActiveDocument = doc;
-            }            
-        }
-
-        [CommandMethod("jopen")]
-        public void jopen()
-        {
-            System.Windows.Forms.OpenFileDialog dlg = new System.Windows.Forms.OpenFileDialog();
-            dlg.FileName = " ";
-            dlg.DefaultExt = ".dwg";
-            dlg.Filter = "Drawing|*.dwg|Standards|*.dws|DXF|*.dxf|Template|*.dwt";
-            dlg.Multiselect = true;
-            dlg.ShowReadOnly = true;
-
-            DialogResult result = dlg.ShowDialog();
-
-            // Process open file dialog box results
-            if (result == DialogResult.OK)
-            {
-                DocumentCollection acDocMgr = acApp.DocumentManager;
-                Document doc = null;
-                foreach (string file in dlg.FileNames)
-                {
-                    if (dlg.ReadOnlyChecked)
-                    {
-                        // Open document readonly
-                        doc = acDocMgr.Open(file, true);
-                    }
-                    else
-                    {
-                        // Open document for write                       
-                        doc = acDocMgr.Open(file, false);
-                    }
-                }
-
-                if (doc != null)
-                {
-                    acApp.DocumentManager.MdiActiveDocument = doc;
-                }
-            }
-        }
-
-        [CommandMethod("testopen", CommandFlags.Modal)]
-        public void testopen()
-        {
-            Form2 dia = new Form2();
-            dia.Show();            
-        }
+       
         private static bool IsPointOnCurve(Line line, Point3d pointPr)
         {
             try
@@ -505,7 +434,7 @@ namespace WolviesTools
                 return true;
             }
             catch { }
-            
+
             return false;
         }
     }
@@ -516,17 +445,17 @@ namespace WolviesTools
         private static ContextMenuExtension menuExtension_WTLT;
         private static ContextMenuExtension LinemenuExtension;
         private static ContextMenuExtension BlockmenuExtension;
-        
+
         internal static void Attach()
         {
             menuExtension_WT = new ContextMenuExtension();
             menuExtension_WTLT = new ContextMenuExtension();
             LinemenuExtension = new ContextMenuExtension();
-            BlockmenuExtension = new ContextMenuExtension();    
+            BlockmenuExtension = new ContextMenuExtension();
 
             //Default menu items
             menuExtension_WT.Title = "Wolvies Tools";
-            acMenu item1 = new acMenu("Close All (Don't Save)");           
+            acMenu item1 = new acMenu("Close All (Don't Save)");
             item1.Click += new EventHandler(item1_Click);
             menuExtension_WT.MenuItems.Add(item1);
             acMenu item2 = new acMenu("Close (Don't Save)");
@@ -555,7 +484,7 @@ namespace WolviesTools
             //Menu item for blocks
             acMenu block_item1 = new acMenu("Open XREF (READ ONLY)");
             block_item1.Click += new EventHandler(Blockitem1_Click);
-            BlockmenuExtension.MenuItems.Add(block_item1);            
+            BlockmenuExtension.MenuItems.Add(block_item1);
 
             //settting up RXClasses for entity tyles
             RXClass rxClass_Line = Entity.GetClass(typeof(Line));
@@ -625,7 +554,7 @@ namespace WolviesTools
             Document doc = acApp.DocumentManager.MdiActiveDocument;
             doc.SendStringToExecute("openxref_readonly ", false, false, true);
         }
-        
+
         private static void Lineitem1_Click(object sender, EventArgs e)
         {
             Autodesk.AutoCAD.Windows.MenuItem mItem = sender as Autodesk.AutoCAD.Windows.MenuItem;
